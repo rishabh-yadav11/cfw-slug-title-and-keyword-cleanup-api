@@ -1,95 +1,72 @@
 # Slug, Title, and Keyword Cleanup API
 
-A highly secure Cloudflare Worker API for text manipulation, keyword clustering, entity extraction, and web metadata fetching. This project implements strict rate limits, SSRF guards, IDempotency checks, and validation using TypeScript, Hono, and Zod.
+## Product Summary
+Normalize titles, build slugs, cluster duplicates, clean keyword lists, and extract simple entities from text.
 
-## Features
+## Route List
+- POST /v1/text/slug
+- POST /v1/text/normalize-title
+- POST /v1/text/cluster-keywords
+- POST /v1/text/extract-entities-lite
+- scopes: text:write
+- body_caps: 128KB
+- idempotency: required on POST
+- pii_rules: no raw text logs
+- slug_case: title returns stable slug
+- keyword_case: near-duplicate keywords group under one cluster
+- long_body: oversized payload returns 413
 
-- **Text API**: Slugification, Normalize Titles, Fuzzy Keyword Clustering, Basic Entity Extraction (Emails, Phrases)
-- **Metadata API**: Securely fetch web metadata parsing Open Graph, schema.org JSON-LD, Favicons, and canonical tags, utilizing HTMLRewriter.
-- **Security Baseline**:
-  - Token bucket rate limiting (Free, Pro, Agency) per-IP and per-API key via KV.
-  - Strict SSRF guards preventing private IPs (`10.x`, `192.168.x`, `localhost`) and restricting protocols to `http/https`.
-  - Content size limit (e.g. 128KB on Text API).
-  - Auth scopes (`metadata:read`, `text:write`).
+## Auth Model
+- **Type**: API Key (Bearer Token)
+- **Header**: `Authorization: Bearer <api_key>`
+- **Storage**: Hashed storage in Cloudflare KV
+- **Advanced**: HMAC Signature required for write routes (X-Timestamp, X-Nonce, X-Signature)
 
-## Requirements
+## Rate Limit Model
+- **Model**: Token Bucket (per API Key and per IP)
+- **Free Plan**: 60 req/min, 5000/day
+- **Pro Plan**: 300 req/min, 100,000/day
+- **Headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
 
-- Node.js 18+
-- Wrangler CLI
+## Required Cloudflare Bindings
+- **KV**: Used for API key metadata, rate limiting, and asset storage.
 
-## Setup Local Dev
-
-1. Install dependencies
-
+## Local Setup
 ```bash
 npm install
-```
-
-2. Run locally using wrangler dev
-
-```bash
+cp .env.example .env
 npm run dev
 ```
 
-## Running Tests, Linting, and Typechecking
-
+## Test Commands
 ```bash
-npm run test
-npm run lint
-npm run typecheck
+npm test        # Run Vitest
+npm run lint    # Run ESLint
+npm run typecheck # Run TSC
 ```
 
-## Deployment
-
-Deploying the worker to Cloudflare requires an active account.
-
+## Deploy Steps
 ```bash
+# 1. Create KV/R2 namespaces in Cloudflare
+# 2. Update wrangler.jsonc with namespace IDs
+# 3. Add secrets
+wrangler secret put API_KEY_SECRET
+# 4. Deploy
 npm run deploy
 ```
 
-> **Note on KV Namespaces:** You must bind a KV namespace in `wrangler.jsonc` named `KV` to handle API Key storing and Rate limiting state.
+## Security Notes
+- **SSRF Guard**: Strict blocking of private/local IP ranges on all URL-fetching routes.
+- **Request IDs**: `X-Request-Id` included in every response for tracing.
+- **Strict Validation**: Zod-based input validation for all queries and bodies.
+- **Redaction**: Automatic redaction of PII and secrets in logs.
 
-## Sample Request
-
-**Extract Slug:**
-
+## Example Request
 ```bash
-curl -X POST http://localhost:8787/v1/text/slug \
-  -H "Authorization: Bearer <your-key>" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: my-unique-key" \
-  -d '{"text": "A Hello World Example!"}'
+curl -X GET "http://localhost:8787" \
+     -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
-**Cluster Keywords:**
-
-```bash
-curl -X POST http://localhost:8787/v1/text/cluster-keywords \
-  -H "Authorization: Bearer <your-key>" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: my-unique-key-2" \
-  -d '{"keywords": ["marketing", "marketng", "sales", "sale"]}'
-```
-
-**Fetch Metadata:**
-
-```bash
-curl -X GET "http://localhost:8787/v1/metadata?url=https://example.com" \
-  -H "Authorization: Bearer <your-key>"
-```
-
-## Creating an API Key
-
-Keys are stored in the KV namespace in a hash format.
-`apikey:<sha256_of_key_string>` mapping to:
-
-```json
-{
-  "key_id": "key_1",
-  "prefix": "test",
-  "plan": "free",
-  "scopes": ["text:write", "metadata:read"],
-  "status": "active",
-  "created_at": 1690000000000
-}
-```
+## Response Shape
+- **Success**: `{ ok: true, data: {...}, meta: {...}, request_id: "..." }`
+- **Error**: `{ ok: false, error: { code: "...", message: "..." }, request_id: "..." }`
