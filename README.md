@@ -1,88 +1,42 @@
-# Slug, Title, and Keyword Cleanup API
+# Content Cleanup & Slug Generator
 
-## Product Summary
-Normalize titles, build slugs, cluster duplicates, clean keyword lists, and extract simple entities from text.
+> **Content / SEO** | High-performance API powered by Cloudflare Workers.
 
-## Route List
-- POST /v1/text/slug
-- POST /v1/text/normalize-title
-- POST /v1/text/cluster-keywords
-- POST /v1/text/extract-entities-lite
-- scopes: text:write
-- body_caps: 128KB
-- idempotency: required on POST
-- pii_rules: no raw text logs
-- slug_case: title returns stable slug
-- keyword_case: near-duplicate keywords group under one cluster
-- long_body: oversized payload returns 413
+## Description
+Advanced text normalization. Build SEO slugs, cluster keywords, and clean titles from raw text.
 
-## Auth Model
-- **Type**: API Key (Bearer Token)
-- **Header**: `Authorization: Bearer <api_key>`
-- **Storage**: Hashed storage in Cloudflare KV
-- **Advanced**: HMAC Signature required for write routes (X-Timestamp, X-Nonce, X-Signature)
+This API is designed for high-scale applications requiring low latency and robust security. It is fully integrated with RapidAPI for seamless billing and key management.
 
-## Rate Limit Model
-- **Model**: Token Bucket (per API Key and per IP)
-- **Free Plan**: 60 req/min, 5000/day
-- **Pro Plan**: 300 req/min, 100,000/day
-- **Headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+## Key Features
+- **Global Low Latency**: Deployed on Cloudflare's global edge network.
+- **Enterprise Security**: Built-in SSRF protection and strict input validation.
+- **Developer First**: Structured JSON responses and clear error codes.
+- **RapidAPI Ready**: No custom auth logic required; simply use your RapidAPI Key.
 
-## Required Cloudflare Bindings
-- **KV**: Used for API key metadata, rate limiting, and asset storage.
+## Authentication
+This API is exclusively available via **RapidAPI**. 
+1. Subscribe to a plan on the RapidAPI Marketplace.
+2. Include the following headers in your requests:
+   - `X-RapidAPI-Key`: Your unique RapidAPI Subscription Key.
+   - `X-RapidAPI-Host`: The host assigned by RapidAPI.
 
-## Local Setup
-```bash
-npm install
-cp .env.example .env
-npm run dev
+## API Endpoints
+- POST /v1/text/slugify\n- POST /v1/text/clean-keywords
+
+## Implementation Details
+- **Technology**: TypeScript / Hono / Cloudflare Workers
+- **Database**: Cloudflare D1 (SQL) for usage tracking
+- **Response Format**: JSON
+- **Rate Limits**: Managed by your RapidAPI plan (Basic, Pro, Ultra)
+
+## Standard Response Shape
+```json
+{
+  "ok": true,
+  "data": { ... },
+  "request_id": "req_..."
+}
 ```
 
-## Test Commands
-```bash
-npm test        # Run Vitest
-npm run lint    # Run ESLint
-npm run typecheck # Run TSC
-```
-
-## Deploy Steps
-```bash
-# 1. Create KV/R2 namespaces in Cloudflare
-# 2. Update wrangler.jsonc with namespace IDs
-# 3. Add secrets
-wrangler secret put API_KEY_SECRET
-# 4. Deploy
-npm run deploy
-```
-
-## Security Notes
-- **SSRF Guard**: Strict blocking of private/local IP ranges on all URL-fetching routes.
-- **Request IDs**: `X-Request-Id` included in every response for tracing.
-- **Strict Validation**: Zod-based input validation for all queries and bodies.
-- **Redaction**: Automatic redaction of PII and secrets in logs.
-
-## Example Request
-```bash
-curl -X GET "http://localhost:8787" \
-     -H "Authorization: Bearer YOUR_API_KEY"
-```
-
-## Response Shape
-- **Success**: `{ ok: true, data: {...}, meta: {...}, request_id: "..." }`
-- **Error**: `{ ok: false, error: { code: "...", message: "..." }, request_id: "..." }`
-
-## Infrastructure Setup
-
-Run these commands to initialize the required Cloudflare resources:
-
-```bash
-# 1. Create KV Namespace (Note the ID from the output)
-wrangler kv:namespace create "KV"
-
-# 3. Set Secrets
-wrangler secret put API_KEY_SECRET
-wrangler secret put HMAC_SECRET
-```
-
-> **Note:** After creating KV/R2, update the `id` fields in `wrangler.jsonc` with the IDs provided by the command output.
-
+---
+*Maintained by rishabh-yadav11. For custom enterprise deployments, contact us.*
